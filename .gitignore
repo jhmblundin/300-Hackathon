@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+.env
+.env.*
+!.env.example
+*.log
+.DS_Store
+# Participant lists stay out of this public repo. Paste them into the admin Groups tab.
+participants*.txt
+participants*.csv
+.qa/
