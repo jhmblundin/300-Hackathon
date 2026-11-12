@@ -302,3 +302,11 @@ strong { font-weight: 600; }
   .board-xl .board-row { padding: 10px 14px; }
   .admin-grid { grid-template-columns: 1fr; }
 }
+
+/* Host controls on the TV screen (2026-11-12) */
+.screen { padding-bottom: 96px; }
+.host-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; display: flex; gap: 12px; align-items: center; justify-content: flex-end; padding: 14px 24px; background: linear-gradient(to top, rgba(30,32,40,.97) 70%, rgba(30,32,40,0)); }
+.host-bar .error { margin-right: auto; }
+.host-main { font-size: 1.35rem; padding: 18px 34px; border-radius: 999px; box-shadow: 0 8px 30px rgba(200,16,46,.45); }
+.name-cloud { display: flex; flex-wrap: wrap; gap: 10px; align-content: flex-start; margin-top: 16px; max-height: 60vh; overflow: auto; }
+.name-chip { background: #F6F6F4; color: #1E2028; font-weight: 700; font-size: 1.25rem; padding: 8px 16px; border-radius: 999px; }

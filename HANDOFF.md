@@ -19,21 +19,20 @@ in Railway (Service → Settings → Source) if you can.
 
 **Phase lengths in production:** `SUBMIT_SECONDS=60`, `VOTE_SECONDS=120` (Sean). Superlatives stay 60 s.
 
-### Not built yet (Sean asked for these on 2026-11-12; please have your agent build them)
+### Built at 7pm on 2026-11-12 (Sean's agent): the Kahoot-style flow
 
-1. **Anyone who opens `/ideaathon` is instantly a new player.** No join code, no searching for a name, no picking a
-   group. Opening the page makes a new user (kept in localStorage so a refresh keeps them), and that user is a
-   participant right away. Don't worry about people spamming the URL. Users still need to end up in **random teams
-   of 4** (e.g. assign people as they arrive, or let the admin shuffle everyone who has joined into teams of 4), and
-   each phone shows its team big enough that teammates can find each other. Votes probably become one per person,
-   not one per team. Today the app is still one phone per group, joined with the code and the pasted name list.
-2. **Phase 1 = three wacky ideas in 60 seconds.** `IDEAS_PER_GROUP` is still 2 and a description is required (up
-   to 200 words), which doesn't fit 60 seconds. Sean wants 3 ideas; make the description optional or just a title.
-3. **A big, dramatic "Next phase" button on `/ideaathon/presentation`.** Today Next lives only on `/admin`. Clicking
-   it on the projector should jump the game (e.g. ideas → voting) and flip every phone at that moment (phones
-   already follow the phase live). The button should only work for a signed-in admin; the projector page already
-   requires the admin sign-in.
-4. Phase 2 (vote for 120 s with 🚀 / 😐 / 💩) is built; only the timing changed.
+- **`/ideaathon/admin` is the TV screen and has the controls** (same as `/presentation`); the old tabbed console moved
+  to `/ideaathon/console`. `ADMIN_OPEN=true` on Railway turns off the passcode (Sean's call).
+- **Flow:** Start game → waiting room with the QR, the code and the names as they join → **Start the game** makes
+  random teams of 4 from everyone who joined and starts Phase 1 → **Next phase** on the same screen flips every phone.
+- **Phones:** open the link, type a name (and the code if they didn't scan) → a new player every time. Late joiners go
+  to the smallest team. State: `players` (participantId → token hash); `votes` and `superlativeVotes` are keyed by
+  player now (one vote per person, never on your own team's idea).
+- **Phase 1:** 3 ideas per team, a title is enough (description optional). Teammates share the 3 slots, so two
+  people editing the same slot overwrite each other; the screen tells them to take one each.
+- **To do for Jack's agent:** two engine tests in `tests/game.test.ts` still use the old one-phone-per-group claim flow
+  and are skipped (`it.skip`); rewrite them for players. `scripts/simulate.ts` and `scripts/bots.ts` also still use
+  `player:claim` and won't work until updated.
 
 ---
 

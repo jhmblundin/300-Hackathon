@@ -11,7 +11,7 @@ export const SUPERLATIVES = [
 ] as const;
 
 export const GROUP_SIZE = 4;
-export const IDEAS_PER_GROUP = 2;
+export const IDEAS_PER_GROUP = 3;
 export const TITLE_MAX_CHARS = 80;
 export const DESCRIPTION_MAX_WORDS = 200;
 export const DESCRIPTION_MAX_CHARS = 2000;
@@ -100,7 +100,7 @@ export function voteWinners<T extends { id: string; createdAt: number }>(
 export const PHASE_LABEL = {
   setup: 'Setup',
   lobby: 'Lobby',
-  submit: 'Phase 1 · Pitch',
+  submit: 'Phase 1 · Ideas',
   vote: 'Phase 2 · Vote',
   superlatives: 'Phase 3 · Superlatives',
   finished: "That's a wrap",

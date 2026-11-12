@@ -11,7 +11,7 @@ import {
 } from '../../../shared/rules';
 import type { MeState, PublicIdea, PublicState } from '../../../shared/types';
 import { Brand, ConnectionBanner, IdeaDetail, Leaderboard, Modal, TimerView, WordCount } from '../components/ui';
-import { CODE_KEY, claimGroup, connect, emitAck, submitCode, useStore } from '../lib/store';
+import { CODE_KEY, connect, emitAck, joinGame, useStore } from '../lib/store';
 import { stableShuffle } from '../lib/time';
 
 export default function Play() {
@@ -29,9 +29,10 @@ export default function Play() {
 
   let body;
   if (playerMode === 'connecting') body = <Center>Connecting…</Center>;
-  else if (playerMode === 'needCode') body = <CodeEntry error={codeError} />;
-  else if (playerMode === 'viewer') body = pub ? <GroupPicker pub={pub} /> : <Center>Loading…</Center>;
-  else if (!pub || !me) body = <Center>Loading your group…</Center>;
+  else if (playerMode === 'needCode') body = <JoinForm askCode error={codeError} />;
+  else if (playerMode === 'viewer') body = <JoinForm askCode={false} error={null} />;
+  else if (!pub || !me) body = <Center>Loading…</Center>;
+  else if (!me.groupNumber) body = <Waiting pub={pub} me={me} />;
   else body = <GroupGame pub={pub} me={me} ideas={ideas} />;
 
   return (
@@ -51,102 +52,82 @@ function Center({ children }: { children: React.ReactNode }) {
   );
 }
 
-function CodeEntry({ error }: { error: string | null }) {
+function JoinForm({ askCode, error }: { askCode: boolean; error: string | null }) {
   const [code, setCode] = useState('');
+  const [name, setName] = useState('');
+  const [pending, setPending] = useState(false);
+  const [err, setErr] = useState<string | null>(error);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!name.trim() || (askCode && !code.trim())) return;
+    setPending(true);
+    const res = await joinGame(name.trim(), askCode ? code : undefined);
+    setPending(false);
+    if (!res.ok) setErr(res.error);
+  }
   return (
     <>
       <Brand />
-      <form
-        className="card stack"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (code.trim()) submitCode(code);
-        }}
-      >
+      <form className="card stack" onSubmit={submit}>
         <h1>Join the game</h1>
-        <p className="muted">Scan the QR code on the big screen, or type the code shown under it.</p>
+        {askCode && (
+          <>
+            <p className="muted">Type the code on the big screen.</p>
+            <input
+              className="code-input"
+              value={code}
+              onChange={(e) => setCode(e.target.value.toUpperCase())}
+              placeholder="CODE"
+              autoCapitalize="characters"
+              autoComplete="off"
+              maxLength={8}
+            />
+          </>
+        )}
         <input
-          className="code-input"
-          value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          placeholder="CODE"
-          autoCapitalize="characters"
-          autoComplete="off"
-          maxLength={8}
+          className="input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your name"
+          autoComplete="given-name"
+          maxLength={40}
+          autoFocus={!askCode}
         />
-        {error && <p className="error">{error}</p>}
-        <button className="btn btn-primary" type="submit">
-          Join
+        {err && <p className="error">{err}</p>}
+        <button className="btn btn-primary" type="submit" disabled={pending || !name.trim()}>
+          {pending ? 'Joining…' : 'Join'}
         </button>
       </form>
     </>
   );
 }
 
-function GroupPicker({ pub }: { pub: PublicState }) {
-  const [query, setQuery] = useState('');
-  const [pending, setPending] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [confirm, setConfirm] = useState<PublicState['groups'][number] | null>(null);
-
-  if (pub.phase === 'setup' || !pub.groups.length) {
-    return <Center>You're in! Groups aren't out yet. Keep this page open.</Center>;
-  }
-
-  const q = query.trim().toLowerCase();
-  const groups = q ? pub.groups.filter((g) => g.members.some((m) => m.toLowerCase().includes(q))) : pub.groups;
-
-  async function join(groupId: string) {
-    setPending(groupId);
-    setError(null);
-    const res = await claimGroup(groupId);
-    setPending(null);
-    setConfirm(null);
-    if (!res.ok) setError(res.error);
-  }
-
+function Waiting({ pub, me }: { pub: PublicState; me: MeState }) {
   return (
     <>
       <Brand />
-      <div className="stack">
-        <h1>Find your group</h1>
-        <p className="muted">One phone per group. Pick the group with your name in it.</p>
-        <input
-          className="input"
-          placeholder="Search your name"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          autoComplete="off"
-        />
-        {error && <p className="error">{error}</p>}
-        <div className="group-grid">
-          {groups.map((g) => (
-            <button
-              key={g.id}
-              className={`group-card ${g.joined ? 'joined' : ''}`}
-              disabled={g.joined || pending != null}
-              onClick={() => setConfirm(g)}
-            >
-              <span className="group-num">Group {g.number}</span>
-              <span className="group-members">{g.members.join(', ')}</span>
-              {g.joined && <span className="label">Already joined</span>}
-            </button>
-          ))}
-          {!groups.length && <p className="muted">No group has that name. Check the spelling.</p>}
-        </div>
+      <div className="card hero-card">
+        <div className="label accent">You're in</div>
+        <h1>{me.name}</h1>
+        <p className="muted">
+          Look for your name on the big screen. {pub.playerCount} {pub.playerCount === 1 ? 'person has' : 'people have'}{' '}
+          joined. Teams of 4 get made when the game starts.
+        </p>
       </div>
-      {confirm && (
-        <Modal onClose={() => setConfirm(null)}>
-          <div className="stack">
-            <h2>Join as Group {confirm.number}?</h2>
-            <p className="muted">{confirm.members.join(', ')}</p>
-            <p>This phone will be your group's only phone for the whole game.</p>
-            <button className="btn btn-primary" disabled={pending != null} onClick={() => join(confirm.id)}>
-              {pending ? 'Joining…' : `Yes, we're Group ${confirm.number}`}
-            </button>
-          </div>
-        </Modal>
-      )}
+      <div className="card stack">
+        <h3>How it works</h3>
+        <ol className="howto">
+          <li>
+            <strong>Ideas ({Math.round(pub.durations.submitMs / 1000)} s):</strong> your team writes {IDEAS_PER_GROUP} wacky startup ideas.
+          </li>
+          <li>
+            <strong>Vote ({Math.round(pub.durations.voteMs / 1000)} s):</strong> 🚀 good, 😐 okay or 💩 bad on every other team's idea.
+          </li>
+          <li>
+            <strong>Superlatives:</strong> pick the idea that deserves each award.
+          </li>
+        </ol>
+      </div>
     </>
   );
 }
@@ -156,7 +137,7 @@ function GroupGame({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: P
     <Brand
       right={
         <div className="phone-head-right">
-          <span className="group-badge">G{me.groupNumber}</span>
+          <span className="group-badge">Team {me.groupNumber}</span>
         </div>
       }
     />
@@ -224,8 +205,10 @@ function PitchPhase({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: 
     <>
       <div className="phase-head">
         <div className="label accent">Phase 1 · Pitch</div>
-        <h1>Pitch two ideas</h1>
-        <p className="muted">A title and up to {DESCRIPTION_MAX_WORDS} words each. Changes save automatically.</p>
+        <h1>Pitch {IDEAS_PER_GROUP} wacky ideas</h1>
+        <p className="muted">
+          Team {me.groupNumber}: {me.members.join(', ')}. Split them up: one idea each. A title is enough. Saves automatically.
+        </p>
       </div>
       {closed && <div className="notice">Time's up! Voting starts in a moment.</div>}
       {Array.from({ length: IDEAS_PER_GROUP }, (_, slot) => (
@@ -260,7 +243,7 @@ function IdeaForm({ slot, mine, disabled }: { slot: number; mine: MeState['ideas
   const saved = useRef({ title: mine?.title ?? '', desc: mine?.description ?? '' });
   const words = countWords(desc);
   const dirty = title.trim() !== saved.current.title || desc.trim() !== saved.current.desc;
-  const valid = title.trim().length > 0 && words > 0 && words <= DESCRIPTION_MAX_WORDS;
+  const valid = title.trim().length > 0 && words <= DESCRIPTION_MAX_WORDS;
 
   // Pick up the server copy (e.g. after a reconnect) unless there are unsaved local edits.
   useEffect(() => {
@@ -303,7 +286,7 @@ function IdeaForm({ slot, mine, disabled }: { slot: number; mine: MeState['ideas
           ? 'Unsaved'
           : words > DESCRIPTION_MAX_WORDS
             ? 'Too long'
-            : 'Needs a title and a description'
+            : 'Needs a title'
         : mine
           ? 'Saved ✓'
           : 'Not started';
@@ -324,8 +307,8 @@ function IdeaForm({ slot, mine, disabled }: { slot: number; mine: MeState['ideas
       />
       <textarea
         className="input"
-        rows={5}
-        placeholder="What is it, who is it for, and why now?"
+        rows={2}
+        placeholder="(Optional) one line on what it is"
         value={desc}
         disabled={disabled}
         onChange={(e) => setDesc(e.target.value)}
@@ -493,7 +476,7 @@ function SuperlativePhase({ pub, me, ideas }: { pub: PublicState; me: MeState; i
           <div className="label">Locked in</div>
           <h2>{byId.get(myVote)?.title ?? 'Your pick'}</h2>
           <p className="muted">
-            {sup.votedCount}/{sup.eligibleCount} groups have voted. Results when the timer hits zero.
+            {sup.votedCount}/{sup.eligibleCount} people have voted. Results when the timer hits zero.
           </p>
         </div>
       </>

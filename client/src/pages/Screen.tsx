@@ -2,7 +2,7 @@ import confetti from 'canvas-confetti';
 import { motion } from 'framer-motion';
 import QRCode from 'qrcode';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { PHASE_LABEL, voteWinners } from '../../../shared/rules';
+import { PHASE_LABEL, SUPERLATIVES, voteWinners } from '../../../shared/rules';
 import type { PublicIdea, PublicState } from '../../../shared/types';
 import { AdminGate } from '../components/AdminGate';
 import { ConnectionBanner, IdeaDetail, Leaderboard, Mark, Modal, TimerView } from '../components/ui';
@@ -46,17 +46,83 @@ function ScreenInner() {
         </div>
       </header>
       <main className="screen-body phase-enter" key={pub.phase + (pub.superlative?.index ?? '')}>
-          {(pub.phase === 'setup' || pub.phase === 'lobby') && <ScreenLobby pub={pub} joinCode={admin.joinCode} />}
+          {(pub.phase === 'setup' || pub.phase === 'lobby') && <ScreenLobby pub={pub} joinCode={admin.joinCode} names={admin.players} />}
           {pub.phase === 'submit' && <ScreenSubmit pub={pub} ideas={ideas} onOpen={setOpen} />}
           {pub.phase === 'vote' && <ScreenVote pub={pub} ideas={ideas} onOpen={setOpen} />}
           {pub.phase === 'superlatives' && <ScreenSuperlative pub={pub} ideas={ideas} />}
           {pub.phase === 'finished' && <Recap pub={pub} ideas={ideas} big />}
       </main>
+      <Controls pub={pub} />
       {shown && (
         <Modal onClose={() => (spotlight ? void adminAction('spotlight', { ideaId: null }) : setOpen(null))} wide>
           <IdeaDetail idea={shown} tally={pub.tallies?.[shown.id]} big />
           {spotlight && <p className="label muted">Spotlighted from the admin console</p>}
         </Modal>
+      )}
+    </div>
+  );
+}
+
+/** The host's buttons, on the same screen that's up on the TV (Sean, 2026-11-12). */
+function Controls({ pub }: { pub: PublicState }) {
+  const [err, setErr] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  async function act(type: string, extra: object = {}, confirmText?: string) {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setBusy(true);
+    const r = await adminAction(type, extra);
+    setBusy(false);
+    setErr(r.ok ? null : r.error);
+  }
+  const timed = pub.phase === 'submit' || pub.phase === 'vote' || pub.phase === 'superlatives';
+  const running = pub.timer?.endsAt != null;
+  const paused = pub.timer?.pausedRemainingMs != null;
+  let main: { label: string; run: () => void } | null = null;
+  if (pub.phase === 'setup') main = { label: 'Start game', run: () => act('openLobby') };
+  else if (pub.phase === 'lobby')
+    main = {
+      label: pub.playerCount ? `Start the game · ${pub.playerCount} in →` : 'Waiting for players…',
+      run: () => pub.playerCount && act('start'),
+    };
+  else if (timed && pub.locked) {
+    const i = pub.superlative?.index ?? 0;
+    const label =
+      pub.phase === 'submit'
+        ? 'Start voting →'
+        : pub.phase === 'vote'
+          ? 'Start superlatives →'
+          : i < SUPERLATIVES.length - 1
+            ? `Next superlative (${i + 2}/${SUPERLATIVES.length}) →`
+            : 'Show the recap →';
+    main = { label, run: () => act('next') };
+  } else if (timed) main = { label: 'Next phase →', run: () => act('endTimer').then(() => act('next')) };
+  else if (pub.phase === 'finished')
+    main = { label: 'New game', run: () => act('openLobby', {}, 'Start a new game? Everyone joins again.') };
+  return (
+    <div className="host-bar">
+      {err && <span className="error">{err}</span>}
+      {timed && !pub.locked && (
+        <>
+          <button className="btn btn-ghost btn-small" onClick={() => act(paused ? 'resume' : 'pause')} disabled={!running && !paused}>
+            {paused ? 'Resume' : 'Pause'}
+          </button>
+          <button className="btn btn-ghost btn-small" onClick={() => act('addTime', { seconds: 30 })}>
+            +30 s
+          </button>
+        </>
+      )}
+      {pub.phase !== 'setup' && pub.phase !== 'finished' && (
+        <button
+          className="btn btn-ghost btn-small"
+          onClick={() => act('openLobby', {}, 'Throw away this game and open a new waiting room? Everyone joins again.')}
+        >
+          Restart
+        </button>
+      )}
+      {main && (
+        <button className="btn btn-primary host-main" disabled={busy || (pub.phase === 'lobby' && !pub.playerCount)} onClick={main.run}>
+          {main.label}
+        </button>
       )}
     </div>
   );
@@ -93,42 +159,42 @@ export function JoinQr({ joinCode, size = 340 }: { joinCode: string; size?: numb
   );
 }
 
-function ScreenLobby({ pub, joinCode }: { pub: PublicState; joinCode: string }) {
-  const joined = pub.groups.filter((g) => g.joined).length;
+function ScreenLobby({ pub, joinCode, names }: { pub: PublicState; joinCode: string; names: string[] }) {
+  if (pub.phase === 'setup') {
+    return (
+      <div className="center-msg">
+        <h1 className="display">Idea Board</h1>
+        <p className="lead muted">Press Start game to open the waiting room.</p>
+      </div>
+    );
+  }
   return (
     <div className="lobby-layout">
       <div className="lobby-left">
         <h1 className="display">Scan to join</h1>
-        <p className="lead">One phone per group. Find your name, tap your group.</p>
+        <p className="lead">Or go to the link and type the code.</p>
         <JoinQr joinCode={joinCode} />
       </div>
       <div className="lobby-right">
-        {pub.groups.length ? (
-          <>
-            <div className="row-between">
-              <h2>Groups</h2>
-              <span className="label">
-                {joined}/{pub.groups.length} joined
-              </span>
-            </div>
-            <div className="screen-groups">
-              {pub.groups.map((g) => (
-                <motion.div
-                  key={g.id}
-                  className={`screen-group ${g.joined ? 'joined' : ''}`}
-                  animate={g.joined ? { scale: [1, 1.04, 1] } : {}}
-                >
-                  <div className="screen-group-num">
-                    Group {g.number} {g.joined && <span className="check">✓</span>}
-                  </div>
-                  <div className="screen-group-members">{g.members.join(' · ')}</div>
-                </motion.div>
-              ))}
-            </div>
-          </>
+        <div className="row-between">
+          <h2>Waiting room</h2>
+          <span className="big-count">
+            {names.length}
+            <span className="muted"> joined</span>
+          </span>
+        </div>
+        {names.length ? (
+          <div className="name-cloud">
+            {names.map((n, i) => (
+              <motion.span key={i} className="name-chip" initial={{ scale: 0.6, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}>
+                {n}
+              </motion.span>
+            ))}
+          </div>
         ) : (
-          <div className="center-msg">Groups coming soon…</div>
+          <div className="center-msg muted">Names show up here as people join…</div>
         )}
+        {pub.groups.length > 0 && <p className="muted">Teams are made. Late joiners go to the smallest team.</p>}
       </div>
     </div>
   );
@@ -138,7 +204,7 @@ function ScreenSubmit({ pub, ideas, onOpen }: { pub: PublicState; ideas: PublicI
   return (
     <div className="stack">
       <div className="row-between">
-        <h1 className="display-sm">{pub.locked ? "Time's up. Pens down!" : 'Pitch two ideas per group'}</h1>
+        <h1 className="display-sm">{pub.locked ? "Time's up. Pens down!" : 'Teams: pitch 3 wacky ideas'}</h1>
         <span className="big-count">
           {pub.ideaCount}
           <span className="muted">/{pub.ideaTarget} ideas</span>
@@ -212,7 +278,7 @@ function ScreenSuperlative({ pub, ideas }: { pub: PublicState; ideas: PublicIdea
         <div className="superlative-waiting">
           <div className="big-count">
             {sup.votedCount}
-            <span className="muted">/{sup.eligibleCount} groups voted</span>
+            <span className="muted">/{sup.eligibleCount} people voted</span>
           </div>
           <p className="lead muted">Vote on your phone. Results when the timer hits zero.</p>
         </div>

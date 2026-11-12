@@ -203,7 +203,7 @@ function flush() {
     lastIdeasJson = json;
     io.to('players').emit('ideas', ideas);
   }
-  for (const g of game.state.groups) io.to(`group:${g.id}`).emit('me', game.meState(g.id));
+  for (const pid of Object.keys(game.players())) io.to(`p:${pid}`).emit('me', game.meState(pid));
   io.to('admins').emit('admin', game.adminState());
 }
 
@@ -232,29 +232,30 @@ function sendFull(socket: S) {
   if (socket.data.admin) socket.emit('admin', game.adminState());
 }
 
-function joinGroup(socket: S, groupId: string) {
-  const claim = game.state.claims[groupId];
+// socket.data.groupId holds the PLAYER id (each phone is one player since 2026-11-12).
+function joinAsPlayer(socket: S, playerId: string) {
+  const claim = game.players()[playerId];
   if (!claim) return;
-  if (socket.data.groupId && socket.data.groupId !== groupId) socket.leave(`group:${socket.data.groupId}`);
-  socket.data.groupId = groupId;
+  if (socket.data.groupId && socket.data.groupId !== playerId) socket.leave(`p:${socket.data.groupId}`);
+  socket.data.groupId = playerId;
   socket.data.tokenHash = claim.tokenHash;
-  socket.join(['players', `group:${groupId}`]);
+  socket.join(['players', `p:${playerId}`]);
   sendFull(socket);
-  socket.emit('me', game.meState(groupId));
+  socket.emit('me', game.meState(playerId));
 }
 
-/** The group this socket is playing as, if its phone's claim is still valid. */
+/** The player this socket is, if its phone's token is still valid. */
 function groupOf(socket: S): string | null {
-  const { groupId, tokenHash } = socket.data;
-  if (groupId && tokenHash && game.state.claims[groupId]?.tokenHash === tokenHash) return groupId;
+  const { groupId: pid, tokenHash } = socket.data;
+  if (pid && tokenHash && game.players()[pid]?.tokenHash === tokenHash) return pid;
   return null;
 }
 
-/** Tell phones whose group claim is gone (released or groups regenerated) to pick again. */
+/** Tell phones whose player is gone (a new waiting room was opened) to join again. */
 function kickStaleGroups() {
   for (const s of io.sockets.sockets.values() as IterableIterator<S>) {
     if (s.data.groupId && !groupOf(s)) {
-      s.leave(`group:${s.data.groupId}`);
+      s.leave(`p:${s.data.groupId}`);
       s.data.groupId = null;
       s.data.tokenHash = null;
       s.emit('released');
@@ -277,7 +278,7 @@ function handle(socket: S, event: string, fn: (p: any) => Ack<any> | HelloAck) {
   });
 }
 
-const NOT_JOINED: Ack = { ok: false, error: "Your phone isn't joined to a group. Refresh the page." };
+const NOT_JOINED: Ack = { ok: false, error: "You're not on a team yet. Refresh the page." };
 
 io.on('connection', (socket: S) => {
   // Flood guard: a phone can't send more than 150 events per 5 seconds (real tapping is far below this).
@@ -306,10 +307,10 @@ io.on('connection', (socket: S) => {
     const token = str(p.token, 200);
     const code = str(p.code, 20);
     if (token) {
-      const gid = game.groupForToken(token);
-      if (gid) {
-        joinGroup(socket, gid);
-        return { ok: true, mode: 'group', groupId: gid };
+      const pid = game.playerForToken(token);
+      if (pid) {
+        joinAsPlayer(socket, pid);
+        return { ok: true, mode: 'group', groupId: game.playerGroup(pid)?.id ?? '', playerId: pid };
       }
     }
     if (socket.data.admin || socket.data.viewer) return { ok: true, mode: 'viewer', tokenInvalid: Boolean(token) };
@@ -325,22 +326,22 @@ io.on('connection', (socket: S) => {
     return { ok: true, mode: 'viewer', tokenInvalid: Boolean(token) };
   });
 
-  handle(socket, 'player:claim', (p) => {
+  handle(socket, 'player:join', (p) => {
     if (codeLimiter.blocked(socket.data.ip)) return { ok: false, error: 'Too many tries. Wait a minute.' };
-    const r = game.claim(str(p.groupId), str(p.code, 20));
+    const r = game.joinPlayer(str(p.name, 80), str(p.code, 20));
     if (!r.ok) {
       if (r.error === BAD_CODE) codeLimiter.fail(socket.data.ip);
       return r;
     }
     socket.data.viewer = true;
-    joinGroup(socket, r.groupId);
-    console.log(`[game] group ${game.group(r.groupId)?.number} joined`);
+    joinAsPlayer(socket, r.playerId);
     changed();
     return r;
   });
 
   handle(socket, 'player:saveIdea', (p) => {
-    const gid = groupOf(socket);
+    const pid = groupOf(socket);
+    const gid = pid ? game.playerGroup(pid)?.id : null;
     if (!gid) return NOT_JOINED;
     const r = game.saveIdea(gid, p.slot, str(p.title, 400), str(p.description, 5000));
     if (r.ok) changed();
@@ -380,6 +381,9 @@ io.on('connection', (socket: S) => {
         break;
       case 'rotateCode':
         r = game.rotateJoinCode();
+        break;
+      case 'openLobby':
+        r = game.openLobby();
         break;
       case 'start':
         r = game.start();

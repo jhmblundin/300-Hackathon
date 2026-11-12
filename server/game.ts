@@ -81,6 +81,7 @@ export function initialState(): GameState {
     groups: [],
     joinCode: makeJoinCode(),
     claims: {},
+    players: {},
     phase: 'setup',
     locked: false,
     timer: null,
@@ -110,6 +111,7 @@ export class Game {
     private clock: () => number = Date.now,
   ) {
     this.state = saved && saved.schemaVersion === 1 ? { ...initialState(), ...saved } : initialState();
+    this.state.players ??= {};
   }
 
   private now() {
@@ -127,7 +129,28 @@ export class Game {
   }
 
   joinedGroupIds(): Set<string> {
-    return new Set(Object.keys(this.state.claims).filter((id) => this.group(id)));
+    return new Set(this.state.groups.filter((g) => g.memberIds.length).map((g) => g.id));
+  }
+
+  players(): Record<string, { tokenHash: string; claimedAt: number }> {
+    return (this.state.players ??= {});
+  }
+
+  /** The team a player is on, once teams are made. */
+  playerGroup(playerId: string) {
+    return this.state.groups.find((g) => g.memberIds.includes(playerId));
+  }
+
+  playerForToken(token: string): string | null {
+    if (!token) return null;
+    const h = hashToken(token);
+    for (const [pid, c] of Object.entries(this.players())) if (c.tokenHash === h) return pid;
+    return null;
+  }
+
+  /** Players on a team (they can vote). */
+  teamedPlayerIds(): string[] {
+    return this.state.groups.flatMap((g) => g.memberIds).filter((id) => this.players()[id]);
   }
 
   checkCode(code: string): boolean {
@@ -222,8 +245,9 @@ export class Game {
     const showTallies = s.phase === 'vote' || s.phase === 'superlatives' || s.phase === 'finished';
     let votesCast = 0;
     let votesPossible = 0;
-    for (const gid of joined) {
-      votesCast += Object.keys(s.votes[gid] ?? {}).filter((id) => this.idea(id)).length;
+    for (const pid of this.teamedPlayerIds()) {
+      const gid = this.playerGroup(pid)?.id;
+      votesCast += Object.keys(s.votes[pid] ?? {}).filter((id) => this.idea(id)).length;
       votesPossible += s.ideas.filter((i) => i.groupId !== gid).length;
     }
     let superlative: PublicState['superlative'] = null;
@@ -234,7 +258,7 @@ export class Game {
         total: SUPERLATIVES.length,
         text: SUPERLATIVES[s.superlativeIndex],
         votedCount: Object.keys(votes).length,
-        eligibleCount: joined.size,
+        eligibleCount: this.teamedPlayerIds().length,
         result: s.locked ? this.superlativeResult(s.superlativeIndex) : null,
       };
     }
@@ -250,6 +274,7 @@ export class Game {
         joined: joined.has(g.id),
       })),
       ideaCount: s.ideas.length,
+      playerCount: Object.keys(this.players()).length,
       ideaTarget: s.groups.length * IDEAS_PER_GROUP,
       tallies: showTallies ? this.tallies() : null,
       votesCast,
@@ -261,24 +286,31 @@ export class Game {
     };
   }
 
-  meState(groupId: string): MeState | null {
-    const g = this.group(groupId);
-    if (!g) return null;
+  meState(playerId: string): MeState | null {
+    if (!this.players()[playerId]) return null;
     const s = this.state;
+    const name = s.participants.find((p) => p.id === playerId)?.name ?? 'Player';
+    const g = this.playerGroup(playerId);
+    if (!g) {
+      return { playerId, name, groupId: '', groupNumber: 0, members: [], ideas: [], votes: {}, superlativeVotes: {} };
+    }
+    const groupId = g.id;
     const ideas = Array.from({ length: IDEAS_PER_GROUP }, (_, slot) => {
       const i = s.ideas.find((x) => x.groupId === groupId && x.slot === slot);
       return i ? { id: i.id, slot, title: i.title, description: i.description } : null;
     });
     const superlativeVotes: Record<string, string> = {};
     for (const [idx, votes] of Object.entries(s.superlativeVotes)) {
-      if (votes[groupId]) superlativeVotes[idx] = votes[groupId];
+      if (votes[playerId]) superlativeVotes[idx] = votes[playerId];
     }
     return {
+      playerId,
+      name,
       groupId,
       groupNumber: g.number,
       members: this.memberNames(g.memberIds),
       ideas,
-      votes: { ...(s.votes[groupId] ?? {}) },
+      votes: { ...(s.votes[playerId] ?? {}) },
       superlativeVotes,
     };
   }
@@ -290,13 +322,14 @@ export class Game {
     const pub = this.publicState();
     return {
       joinCode: s.joinCode,
+      players: s.participants.filter((p) => this.players()[p.id]).map((p) => p.name),
       participants: s.participants.map((p) => p.name),
       groups: pub.groups.map((g) => ({
         ...g,
         claimedAt: s.claims[g.id]?.claimedAt ?? null,
         ideaCount: s.ideas.filter((i) => i.groupId === g.id).length,
-        voteCount: Object.keys(s.votes[g.id] ?? {}).length,
-        votedSuperlative: Boolean(cur[g.id]),
+        voteCount: g.members.length ? Object.keys(s.votes).filter((pid) => this.playerGroup(pid)?.id === g.id).reduce((n, pid) => n + Object.keys(s.votes[pid]).length, 0) : 0,
+        votedSuperlative: Object.keys(cur).some((pid) => this.playerGroup(pid)?.id === g.id),
       })),
       ideas: [...s.ideas]
         .sort((a, b) => a.createdAt - b.createdAt)
@@ -451,6 +484,8 @@ export class Game {
     if (scope === 'all') {
       s.groups = [];
       s.claims = {};
+      s.players = {};
+      s.participants = [];
       s.joinCode = makeJoinCode();
     }
     s.phase = s.groups.length ? 'lobby' : 'setup';
@@ -459,9 +494,47 @@ export class Game {
 
   // ---------- admin: flow ----------
 
+  /** Opens a fresh waiting room: everyone who opens the link joins it as a new player. */
+  openLobby(): Ack {
+    const s = this.state;
+    this.resetGame('all');
+    s.joinCode = makeJoinCode();
+    s.phase = 'lobby';
+    return ok();
+  }
+
+  /** A phone joins the waiting room as a new player. Late joiners go to the smallest team. */
+  joinPlayer(rawName: unknown, code: string): Ack<{ token: string; playerId: string }> {
+    const s = this.state;
+    if (s.phase === 'setup') return fail("The game isn't open yet. Hang tight.");
+    if (!this.checkCode(code)) return fail(BAD_CODE);
+    const name = String(rawName ?? '').replace(/\s+/g, ' ').trim().slice(0, 40);
+    if (!name) return fail('Type your name');
+    if (Object.keys(this.players()).length >= MAX_PARTICIPANTS) return fail('The game is full');
+    const id = newId('p');
+    s.participants.push({ id, name });
+    const token = randomBytes(24).toString('base64url');
+    this.players()[id] = { tokenHash: hashToken(token), claimedAt: this.now() };
+    if (s.groups.length) {
+      const smallest = [...s.groups].sort((a, b) => a.memberIds.length - b.memberIds.length || a.number - b.number)[0];
+      smallest.memberIds.push(id);
+    }
+    return ok({ token, playerId: id });
+  }
+
   start(): Ack {
     const s = this.state;
-    if (s.phase !== 'lobby') return fail('Generate groups first');
+    if (s.phase !== 'lobby') return fail('Open the waiting room first');
+    if (!s.groups.length) {
+      const ids = shuffle(Object.keys(this.players()));
+      if (!ids.length) return fail('Nobody has joined yet');
+      let at = 0;
+      s.groups = groupSizes(ids.length).map((size, i) => {
+        const memberIds = ids.slice(at, at + size);
+        at += size;
+        return { id: newId('g'), number: i + 1, memberIds };
+      });
+    }
     s.phase = 'submit';
     s.startedAt = this.now();
     s.spotlightIdeaId = null;
@@ -541,7 +614,6 @@ export class Game {
     if (!t) return fail('Give your idea a title');
     if (t.length > TITLE_MAX_CHARS) return fail(`Keep the title under ${TITLE_MAX_CHARS} characters`);
     const words = countWords(d);
-    if (words === 0) return fail('Add a short description');
     if (words > DESCRIPTION_MAX_WORDS) return fail(`Keep it to ${DESCRIPTION_MAX_WORDS} words (you have ${words})`);
     if (d.length > DESCRIPTION_MAX_CHARS) return fail('That description is too long');
     const now = this.now();
@@ -557,31 +629,33 @@ export class Game {
     return ok({ ideaId: idea.id });
   }
 
-  vote(groupId: string, ideaId: unknown, kind: unknown): Ack {
+  vote(playerId: string, ideaId: unknown, kind: unknown): Ack {
     const s = this.state;
     if (s.phase !== 'vote' || s.locked) return fail('Voting is closed');
-    if (!this.group(groupId)) return fail('Unknown group');
+    const groupId = this.playerGroup(playerId)?.id;
+    if (!groupId) return fail("You're not on a team yet");
     if (!VOTE_KINDS.includes(kind as VoteKind)) return fail('Pick 🚀, 😐 or 💩');
     const idea = this.idea(String(ideaId));
     if (!idea) return fail('That idea is gone');
     if (idea.groupId === groupId) return fail("You can't vote on your own idea");
-    const mine = (s.votes[groupId] ??= {});
+    const mine = (s.votes[playerId] ??= {});
     if (mine[idea.id]) return fail('You already voted on this one');
     mine[idea.id] = kind as VoteKind;
     return ok();
   }
 
-  superlativeVote(groupId: string, index: unknown, ideaId: unknown): Ack {
+  superlativeVote(playerId: string, index: unknown, ideaId: unknown): Ack {
     const s = this.state;
     if (s.phase !== 'superlatives' || s.locked) return fail('Voting for this superlative is closed');
     if (Number(index) !== s.superlativeIndex) return fail('That superlative is over');
-    if (!this.group(groupId)) return fail('Unknown group');
+    const groupId = this.playerGroup(playerId)?.id;
+    if (!groupId) return fail("You're not on a team yet");
     const idea = this.idea(String(ideaId));
     if (!idea) return fail('That idea is gone');
     if (idea.groupId === groupId) return fail("You can't vote for your own idea");
     const votes = (s.superlativeVotes[String(s.superlativeIndex)] ??= {});
-    if (votes[groupId]) return fail('Your group already voted');
-    votes[groupId] = idea.id;
+    if (votes[playerId]) return fail('You already voted');
+    votes[playerId] = idea.id;
     return ok();
   }
 }

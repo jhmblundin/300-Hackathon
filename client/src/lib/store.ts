@@ -114,12 +114,19 @@ export function submitCode(code: string) {
   playerHello();
 }
 
-export async function claimGroup(groupId: string) {
-  const code = localStorage.getItem(CODE_KEY) ?? '';
-  const res = await emitAck<{ token: string; groupId: string }>('player:claim', { groupId, code });
+/** Join the waiting room as a new player. */
+export async function joinGame(name: string, code?: string) {
+  if (code) localStorage.setItem(CODE_KEY, code.trim().toUpperCase());
+  const res = await emitAck<{ token: string; playerId: string }>('player:join', {
+    name,
+    code: localStorage.getItem(CODE_KEY) ?? '',
+  });
   if (res.ok) {
     localStorage.setItem(TOKEN_KEY, res.token);
     set({ playerMode: 'group' });
+  } else if (/code/i.test(res.error)) {
+    localStorage.removeItem(CODE_KEY);
+    set({ playerMode: 'needCode' });
   }
   return res;
 }

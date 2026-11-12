@@ -42,17 +42,19 @@ export interface GameState {
   participants: Participant[];
   groups: Group[];
   joinCode: string;
-  /** groupId -> the phone that joined as that group (only a hash of its token is stored). */
+  /** groupId -> the phone that joined as that group (only a hash of its token is stored). Unused since 2026-11-12. */
   claims: Record<string, Claim>;
+  /** participantId -> that player's phone (hash of its token). Every phone that joins is a new player. */
+  players?: Record<string, Claim>;
   phase: Phase;
   /** True once the current phase's timer has run out (inputs closed). */
   locked: boolean;
   timer: Timer | null;
   ideas: Idea[];
-  /** groupId -> ideaId -> vote */
+  /** participantId -> ideaId -> vote (one vote per person) */
   votes: Record<string, Record<string, VoteKind>>;
   superlativeIndex: number;
-  /** String(superlative index) -> groupId -> ideaId */
+  /** String(superlative index) -> participantId -> ideaId */
   superlativeVotes: Record<string, Record<string, string>>;
   spotlightIdeaId: string | null;
   startedAt: number | null;
@@ -91,6 +93,7 @@ export interface PublicState {
   timer: Timer | null;
   groups: PublicGroup[];
   ideaCount: number;
+  playerCount: number;
   ideaTarget: number;
   /** Live emoji tallies; null until the voting phase starts. */
   tallies: Record<string, Tally> | null;
@@ -117,6 +120,9 @@ export interface MyIdea {
 }
 
 export interface MeState {
+  playerId: string;
+  name: string;
+  /** Empty until the game starts and teams are made. */
   groupId: string;
   groupNumber: number;
   members: string[];
@@ -134,6 +140,8 @@ export interface AdminIdea extends PublicIdea {
 
 export interface AdminState {
   joinCode: string;
+  /** Players in the waiting room, newest last. */
+  players: string[];
   participants: string[];
   groups: (PublicGroup & { claimedAt: number | null; ideaCount: number; voteCount: number; votedSuperlative: boolean })[];
   ideas: AdminIdea[];
@@ -142,6 +150,6 @@ export interface AdminState {
 export type Ack<T = object> = ({ ok: true } & T) | { ok: false; error: string };
 
 export type HelloAck =
-  | { ok: true; mode: 'group'; groupId: string }
+  | { ok: true; mode: 'group'; groupId: string; playerId: string }
   | { ok: true; mode: 'viewer'; tokenInvalid: boolean }
   | { ok: false; mode: 'needCode'; error?: string };
