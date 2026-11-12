@@ -130,14 +130,14 @@ class Bot {
 }
 
 async function main() {
-  const res = await fetch(`${BASE}/api/admin/login`, {
+  const res = await fetch(`${BASE}/ideaathon/api/admin/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ password: PASSWORD }),
   });
   if (!res.ok) throw new Error(`Admin sign-in failed (${res.status}). Check ADMIN_PASSWORD.`);
   const cookie = res.headers.get('set-cookie')!.split(';')[0];
-  const admin = io(BASE, { transports: ['websocket'], extraHeaders: { cookie } });
+  const admin = io(BASE, { path: '/ideaathon/socket.io', transports: ['websocket'], extraHeaders: { cookie } });
   let joinCode = '';
   admin.on('admin', (a) => (joinCode = a.joinCode));
 
@@ -152,7 +152,7 @@ async function main() {
     if (!open.length) return;
     busy = true;
     for (const g of open) {
-      const s = io(BASE, { transports: ['websocket'] });
+      const s = io(BASE, { path: '/ideaathon/socket.io', transports: ['websocket'] });
       await new Promise<void>((r) => s.once('connect', () => r()));
       await s.timeout(5000).emitWithAck('player:hello', { code: joinCode });
       const bot = new Bot(s, g.number);

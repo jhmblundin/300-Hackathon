@@ -51,7 +51,7 @@ function AdminInner() {
           ))}
         </nav>
         <div className="admin-head-right">
-          <a className="btn btn-small" href="/screen" target="_blank" rel="noreferrer">
+          <a className="btn btn-small" href={`${import.meta.env.BASE_URL}presentation`} target="_blank" rel="noreferrer">
             Open big screen ↗
           </a>
           <span className="muted">{name}</span>

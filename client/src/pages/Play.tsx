@@ -22,7 +22,7 @@ export default function Play() {
     const code = params.get('code');
     if (code) {
       localStorage.setItem(CODE_KEY, code.toUpperCase());
-      window.history.replaceState(null, '', '/');
+      window.history.replaceState(null, '', import.meta.env.BASE_URL);
     }
     connect('player');
   }, []);

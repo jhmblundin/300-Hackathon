@@ -29,6 +29,12 @@ const num = (v: string | undefined, d: number) => {
 
 const PORT = num(process.env.PORT, 3000);
 const COOKIE = 'h300_admin';
+/** The app lives under this path (300massave.com/ideaathon rewrites to it). */
+const BASE = '/ideaathon';
+/** Other sites allowed to open sockets: 300massave.com proxies /ideaathon here. */
+const ALLOWED_ORIGIN_HOSTS = new Set(
+  (process.env.ALLOWED_ORIGIN_HOSTS ?? '300massave.com,www.300massave.com').split(',').map((h) => h.trim()).filter(Boolean),
+);
 const SESSION_TTL_MS = 16 * 60 * 60 * 1000;
 const gameCfg = {
   submitMs: num(process.env.SUBMIT_SECONDS, 180) * 1000,
@@ -66,13 +72,16 @@ app.use((_req, res, next) => {
   next();
 });
 
-app.get('/healthz', (_req, res) => {
+const health = (_req: express.Request, res: express.Response) => {
   res.json({ ok: true, phase: game.state.phase, storage: store.kind });
-});
+};
+app.get('/healthz', health);
+app.get(`${BASE}/healthz`, health);
+app.get('/', (_req, res) => res.redirect(302, `${BASE}/`));
 
 const loginLimiter = new FailureLimiter(10, 10 * 60_000);
 
-app.post('/api/admin/login', express.json({ limit: '4kb' }), (req, res) => {
+app.post(`${BASE}/api/admin/login`, express.json({ limit: '4kb' }), (req, res) => {
   const ip = clientIp(req.headers, req.socket.remoteAddress);
   if (loginLimiter.blocked(ip)) {
     res.status(429).json({ ok: false, error: 'Too many wrong passcodes. Wait 10 minutes.' });
@@ -97,12 +106,12 @@ app.post('/api/admin/login', express.json({ limit: '4kb' }), (req, res) => {
   res.json({ ok: true, name });
 });
 
-app.post('/api/admin/logout', (_req, res) => {
+app.post(`${BASE}/api/admin/logout`, (_req, res) => {
   res.clearCookie(COOKIE, { path: '/' });
   res.json({ ok: true });
 });
 
-app.get('/api/admin/me', (req, res) => {
+app.get(`${BASE}/api/admin/me`, (req, res) => {
   const name = verifySession(parseCookies(req.headers.cookie)[COOKIE], sessionSecret, admins);
   res.setHeader('Cache-Control', 'no-store');
   res.json({ name });
@@ -113,6 +122,7 @@ const server = http.createServer(app);
 if (isProd) {
   const clientDir = fileURLToPath(new URL('../client', import.meta.url));
   app.use(
+    BASE,
     express.static(clientDir, {
       index: false,
       setHeaders: (res, file) => {
@@ -121,7 +131,8 @@ if (isProd) {
     }),
   );
   app.use((req, res, next) => {
-    if (req.method !== 'GET' || req.path.startsWith('/api/') || req.path.startsWith('/socket.io')) return next();
+    if (req.method !== 'GET' || !(req.path === BASE || req.path.startsWith(`${BASE}/`))) return next();
+    if (req.path.startsWith(`${BASE}/api/`) || req.path.startsWith(`${BASE}/socket.io`)) return next();
     res.setHeader('Cache-Control', 'no-cache');
     res.sendFile('index.html', { root: clientDir });
   });
@@ -135,6 +146,10 @@ if (isProd) {
 
 const io = new Server(server, {
   serveClient: false,
+  path: `${BASE}/socket.io`,
+  // Phones reach us through 300massave.com's proxy, which only does long-polling: keep polls short.
+  pingInterval: 10_000,
+  pingTimeout: 20_000,
   maxHttpBufferSize: 64_000,
   // Same-origin only: blocks other websites from opening a socket with an admin's cookie.
   allowRequest: (req, cb) => {
@@ -142,7 +157,8 @@ const io = new Server(server, {
     if (!origin) return cb(null, true);
     try {
       const host = (req.headers['x-forwarded-host'] as string | undefined) ?? req.headers.host;
-      cb(null, new URL(origin).host === host);
+      const o = new URL(origin).host;
+      cb(null, o === host || ALLOWED_ORIGIN_HOSTS.has(o));
     } catch {
       cb(null, false);
     }

@@ -39,7 +39,7 @@ interface Client {
 }
 
 function client(cookie?: string): Promise<Client> {
-  const c: Client = { s: io(BASE, { transports: ['websocket'], extraHeaders: cookie ? { cookie } : {} }), ideas: [] };
+  const c: Client = { s: io(BASE, { path: '/ideaathon/socket.io', transports: ['websocket'], extraHeaders: cookie ? { cookie } : {} }), ideas: [] };
   c.s.on('public', (p) => (c.pub = p));
   c.s.on('ideas', (i) => (c.ideas = i));
   c.s.on('me', (m) => (c.me = m));
@@ -62,13 +62,13 @@ async function main() {
   console.log(`Rehearsal against ${BASE}`);
 
   // --- admin auth ---
-  const bad = await fetch(`${BASE}/api/admin/login`, {
+  const bad = await fetch(`${BASE}/ideaathon/api/admin/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ password: 'definitely-wrong' }),
   });
   check(bad.status === 401, 'wrong admin passcode is rejected');
-  const res = await fetch(`${BASE}/api/admin/login`, {
+  const res = await fetch(`${BASE}/ideaathon/api/admin/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ password: PASSWORD }),

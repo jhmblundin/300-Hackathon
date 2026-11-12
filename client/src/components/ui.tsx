@@ -6,7 +6,7 @@ import { fmtClock, timerInfo, useNow } from '../lib/time';
 import { useStore } from '../lib/store';
 
 export function Mark({ height = 28 }: { height?: number }) {
-  return <img src="/brand/300-mark-canvas.svg" alt="300" style={{ height }} className="mark" />;
+  return <img src={`${import.meta.env.BASE_URL}brand/300-mark-canvas.svg`} alt="300" style={{ height }} className="mark" />;
 }
 
 export function Brand({ size = 'sm', right }: { size?: 'sm' | 'lg'; right?: ReactNode }) {

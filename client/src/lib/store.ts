@@ -48,7 +48,7 @@ export function useStore(): Store {
   );
 }
 
-export const socket: Socket = io({ autoConnect: false });
+export const socket: Socket = io({ autoConnect: false, path: `${import.meta.env.BASE_URL}socket.io` });
 
 let role: 'player' | 'admin' = 'player';
 

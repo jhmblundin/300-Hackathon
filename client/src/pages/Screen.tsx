@@ -75,7 +75,7 @@ function FullscreenButton() {
 }
 
 export function JoinQr({ joinCode, size = 340 }: { joinCode: string; size?: number }) {
-  const url = `${window.location.origin}/?code=${joinCode}`;
+  const url = `${window.location.origin}${import.meta.env.BASE_URL}?code=${joinCode}`;
   const [svg, setSvg] = useState('');
   useEffect(() => {
     QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M', color: { dark: '#1E2028', light: '#F6F6F4' } })
@@ -86,7 +86,7 @@ export function JoinQr({ joinCode, size = 340 }: { joinCode: string; size?: numb
     <div className="qr-wrap">
       <div className="qr" style={{ width: size, height: size }} dangerouslySetInnerHTML={{ __html: svg }} />
       <div className="qr-caption">
-        <div className="muted">{window.location.host}</div>
+        <div className="muted">{window.location.host}{import.meta.env.BASE_URL.replace(/\/$/, '')}</div>
         <div className="join-code">{joinCode}</div>
       </div>
     </div>

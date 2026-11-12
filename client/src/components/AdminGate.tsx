@@ -6,7 +6,7 @@ const AdminName = createContext<string>('');
 export const useAdminName = () => useContext(AdminName);
 
 export async function logout() {
-  await fetch('/api/admin/logout', { method: 'POST' });
+  await fetch(import.meta.env.BASE_URL + 'api/admin/logout', { method: 'POST' });
   reconnect();
   window.location.reload();
 }
@@ -19,7 +19,7 @@ export function AdminGate({ children, title = 'Admin sign-in' }: { children: Rea
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    fetch('/api/admin/me')
+    fetch(import.meta.env.BASE_URL + 'api/admin/me')
       .then((r) => r.json())
       .then((r) => setName(r.name ?? null))
       .catch(() => setName(null));
@@ -34,7 +34,7 @@ export function AdminGate({ children, title = 'Admin sign-in' }: { children: Rea
     setBusy(true);
     setError(null);
     try {
-      const r = await fetch('/api/admin/login', {
+      const r = await fetch(import.meta.env.BASE_URL + 'api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password }),

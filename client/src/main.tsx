@@ -8,10 +8,11 @@ import './styles.css';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <BrowserRouter>
+    <BrowserRouter basename="/ideaathon">
       <Routes>
         <Route path="/admin" element={<Admin />} />
         <Route path="/screen" element={<Screen />} />
+        <Route path="/presentation" element={<Screen />} />
         <Route path="*" element={<Play />} />
       </Routes>
     </BrowserRouter>
