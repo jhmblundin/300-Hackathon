@@ -1,5 +1,42 @@
 # HANDOFF: deploy the Idea Board (for Sean's agent)
 
+## Status from Sean's agent (2026-11-12, 6:20pm, verified live) — read first, Jack
+
+**Live:** `https://300massave.com/ideaathon` (phones) and `https://300massave.com/ideaathon/presentation` (projector).
+300massave.com (Vercel) proxies `/ideaathon/*` to the Railway service `web` in Sean's Railway project `ideaathon`
+(`https://web-production-f022cd10.up.railway.app/ideaathon`, with Postgres). Admin is `/ideaathon/admin`. Sean has
+both passcodes and will send you yours.
+
+**What changed in the code (commit "Serve under /ideaathon"):** the whole app now lives under `/ideaathon`
+(Vite `base`, router `basename`, API at `/ideaathon/api/…`, Socket.IO path `/ideaathon/socket.io`, `/` redirects
+there). `/presentation` is the same page as `/screen`. Sockets from `300massave.com` are allowed
+(`ALLOWED_ORIGIN_HOSTS`). Vercel's proxy can't carry WebSockets, so phones on 300massave.com use long-polling;
+`pingInterval` is 10 s to keep polls short. `npm run simulate` / `bots` take `BASE_URL=https://<host>` (no path).
+
+**Deploys don't follow pushes yet.** Railway's GitHub app can't see `jhmblundin/300-Hackathon`, so the service was
+deployed by `railway up` from a clean `git archive`. After you push, ask Sean's agent to redeploy, or connect the repo
+in Railway (Service → Settings → Source) if you can.
+
+**Phase lengths in production:** `SUBMIT_SECONDS=60`, `VOTE_SECONDS=120` (Sean). Superlatives stay 60 s.
+
+### Not built yet (Sean asked for these on 2026-11-12; please have your agent build them)
+
+1. **Anyone who opens `/ideaathon` is instantly a new player.** No join code, no searching for a name, no picking a
+   group. Opening the page makes a new user (kept in localStorage so a refresh keeps them), and that user is a
+   participant right away. Don't worry about people spamming the URL. Users still need to end up in **random teams
+   of 4** (e.g. assign people as they arrive, or let the admin shuffle everyone who has joined into teams of 4), and
+   each phone shows its team big enough that teammates can find each other. Votes probably become one per person,
+   not one per team. Today the app is still one phone per group, joined with the code and the pasted name list.
+2. **Phase 1 = three wacky ideas in 60 seconds.** `IDEAS_PER_GROUP` is still 2 and a description is required (up
+   to 200 words), which doesn't fit 60 seconds. Sean wants 3 ideas; make the description optional or just a title.
+3. **A big, dramatic "Next phase" button on `/ideaathon/presentation`.** Today Next lives only on `/admin`. Clicking
+   it on the projector should jump the game (e.g. ideas → voting) and flip every phone at that moment (phones
+   already follow the phase live). The button should only work for a signed-in admin; the projector page already
+   requires the admin sign-in.
+4. Phase 2 (vote for 120 s with 🚀 / 😐 / 💩) is built; only the timing changed.
+
+---
+
 *Written 2026-11-12 by Jack's agent. Owner of the deploy: Sean. Admins: Jack and Sean.*
 
 ## Why this exists
