@@ -48,7 +48,13 @@ export function useStore(): Store {
   );
 }
 
-export const socket: Socket = io({ autoConnect: false, path: `${import.meta.env.BASE_URL}socket.io` });
+// 300massave.com proxies the page through Vercel, which can't carry WebSockets. Phones there open the live
+// connection straight to the Railway app instead, so taps land instantly (2026-11-12 load test: ~2 s per tap via Vercel).
+const DIRECT = 'https://web-production-f022cd10.up.railway.app';
+const viaProxy = /(^|\.)300massave\.com$/.test(window.location.hostname);
+export const socket: Socket = viaProxy
+  ? io(DIRECT, { autoConnect: false, path: `${import.meta.env.BASE_URL}socket.io`, transports: ['websocket', 'polling'] })
+  : io({ autoConnect: false, path: `${import.meta.env.BASE_URL}socket.io` });
 
 let role: 'player' | 'admin' = 'player';
 

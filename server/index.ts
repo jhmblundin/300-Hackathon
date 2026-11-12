@@ -150,6 +150,8 @@ if (isProd) {
 
 const io = new Server(server, {
   serveClient: false,
+  // Pages on 300massave.com connect here directly (polling fallback needs CORS; WebSockets don't).
+  cors: { origin: [...ALLOWED_ORIGIN_HOSTS].map((h) => `https://${h}`) },
   path: `${BASE}/socket.io`,
   // Phones reach us through 300massave.com's proxy, which only does long-polling: keep polls short.
   pingInterval: 10_000,
