@@ -497,8 +497,9 @@ export class Game {
   /** Opens a fresh waiting room: everyone who opens the link joins it as a new player. */
   openLobby(): Ack {
     const s = this.state;
+    const code = s.joinCode;
     this.resetGame('all');
-    s.joinCode = makeJoinCode();
+    s.joinCode = code; // keep the code so the QR on screen stays valid
     s.phase = 'lobby';
     return ok();
   }

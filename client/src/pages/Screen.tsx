@@ -210,6 +210,14 @@ function ScreenSubmit({ pub, ideas, onOpen }: { pub: PublicState; ideas: PublicI
           <span className="muted">/{pub.ideaTarget} ideas</span>
         </span>
       </div>
+      <div className="team-grid">
+        {pub.groups.map((g) => (
+          <div key={g.id} className="team-card">
+            <b>Team {g.number}</b>
+            <span>{g.members.join(' · ')}</span>
+          </div>
+        ))}
+      </div>
       <ul className="title-wall">
         {ideas.map((i) => (
           <li key={i.id} className="pop-in" onClick={() => onOpen(i)}>
@@ -244,7 +252,7 @@ function ScreenVote({ pub, ideas, onOpen }: { pub: PublicState; ideas: PublicIde
           <span className="label">{winners.length > 1 ? 'Tied for #1' : '🏆 Top idea'}</span>
           <span className="winner-title">{winners.map((w) => w.item.title).join('  ·  ')}</span>
           <span className="muted">
-            {winners.map((w) => `Group ${w.item.authorNumber}`).join(' · ')} · tap to read it
+            {winners.map((w) => `Team ${w.item.authorNumber}`).join(' · ')} · tap to read it
           </span>
         </button>
       )}

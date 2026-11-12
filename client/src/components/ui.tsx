@@ -76,7 +76,7 @@ export function Modal({ onClose, children, wide }: { onClose: () => void; childr
 export function IdeaDetail({ idea, tally, big }: { idea: PublicIdea; tally?: Tally | null; big?: boolean }) {
   return (
     <div className={`idea-detail ${big ? 'idea-detail-big' : ''}`}>
-      {idea.authorNumber != null && <div className="label accent">Group {idea.authorNumber}</div>}
+      {idea.authorNumber != null && <div className="label accent">Team {idea.authorNumber}</div>}
       <h2>{idea.title}</h2>
       <p className="idea-desc">{idea.description}</p>
       {tally && <TallyChips tally={tally} big={big} />}
@@ -138,7 +138,7 @@ export function Leaderboard({
             <span className="board-rank">{r.rank}</span>
             <span className="board-title">
               {r.item.title}
-              {r.item.authorNumber != null && <span className="board-author"> · Group {r.item.authorNumber}</span>}
+              {r.item.authorNumber != null && <span className="board-author"> · Team {r.item.authorNumber}</span>}
             </span>
             <TallyChips tally={r.tally} />
           </motion.li>

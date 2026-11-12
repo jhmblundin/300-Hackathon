@@ -102,6 +102,8 @@ function JoinForm({ askCode, error }: { askCode: boolean; error: string | null }
   );
 }
 
+const dur = (ms: number) => (ms % 60000 === 0 ? `${ms / 60000} min` : `${Math.round(ms / 1000)} s`);
+
 function Waiting({ pub, me }: { pub: PublicState; me: MeState }) {
   return (
     <>
@@ -118,10 +120,10 @@ function Waiting({ pub, me }: { pub: PublicState; me: MeState }) {
         <h3>How it works</h3>
         <ol className="howto">
           <li>
-            <strong>Ideas ({Math.round(pub.durations.submitMs / 1000)} s):</strong> your team writes {IDEAS_PER_GROUP} wacky startup ideas.
+            <strong>Ideas ({dur(pub.durations.submitMs)}):</strong> your team writes {IDEAS_PER_GROUP} wacky startup ideas.
           </li>
           <li>
-            <strong>Vote ({Math.round(pub.durations.voteMs / 1000)} s):</strong> 🚀 good, 😐 okay or 💩 bad on every other team's idea.
+            <strong>Vote ({dur(pub.durations.voteMs)}):</strong> 🚀 good, 😐 okay or 💩 bad on every other team's idea.
           </li>
           <li>
             <strong>Superlatives:</strong> pick the idea that deserves each award.
@@ -167,7 +169,7 @@ function Lobby({ me, pub }: { me: MeState; pub: PublicState }) {
     <>
       <div className="card hero-card">
         <div className="label accent">You're in</div>
-        <h1>Group {me.groupNumber}</h1>
+        <h1>Team {me.groupNumber}</h1>
         <ul className="members">
           {me.members.map((m) => (
             <li key={m}>{m}</li>
@@ -542,7 +544,7 @@ export function SuperlativeResultCard({
         return (
           <div key={id}>
             <h2 className="winner-title">{idea?.title ?? 'Removed idea'}</h2>
-            {idea?.authorNumber != null && <div className="muted">Group {idea.authorNumber}</div>}
+            {idea?.authorNumber != null && <div className="muted">Team {idea.authorNumber}</div>}
           </div>
         );
       })}
@@ -579,7 +581,7 @@ export function Recap({ pub, ideas, big }: { pub: PublicState; ideas: PublicIdea
             <div key={w.item.id}>
               <h2 className="winner-title">{w.item.title}</h2>
               <div className="muted">
-                Group {w.item.authorNumber} · {w.score > 0 ? `+${w.score}` : w.score}
+                Team {w.item.authorNumber} · {w.score > 0 ? `+${w.score}` : w.score}
               </div>
             </div>
           ))
@@ -595,7 +597,7 @@ export function Recap({ pub, ideas, big }: { pub: PublicState; ideas: PublicIdea
               r.winnerIds.map((id) => (
                 <div key={id}>
                   <strong>{byId.get(id)?.title ?? 'Removed idea'}</strong>
-                  <span className="muted"> · Group {byId.get(id)?.authorNumber}</span>
+                  <span className="muted"> · Team {byId.get(id)?.authorNumber}</span>
                 </div>
               ))
             ) : (
