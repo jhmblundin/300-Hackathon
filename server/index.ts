@@ -48,6 +48,10 @@ if (sessionSecret.length < 32) {
   sessionSecret = randomBytes(32).toString('hex');
 }
 const admins = loadAdmins(process.env, !isProd);
+/** ADMIN_OPEN=true: no passcode, everyone is an admin (Sean, 2026-11-12). */
+const ADMIN_OPEN = process.env.ADMIN_OPEN === 'true';
+const adminFrom = (cookie: string | undefined) =>
+  ADMIN_OPEN ? 'Admin' : verifySession(parseCookies(cookie)[COOKIE], sessionSecret, admins);
 
 const store = await createStore({
   databaseUrl: process.env.DATABASE_URL ?? '',
@@ -112,7 +116,7 @@ app.post(`${BASE}/api/admin/logout`, (_req, res) => {
 });
 
 app.get(`${BASE}/api/admin/me`, (req, res) => {
-  const name = verifySession(parseCookies(req.headers.cookie)[COOKIE], sessionSecret, admins);
+  const name = adminFrom(req.headers.cookie);
   res.setHeader('Cache-Control', 'no-store');
   res.json({ name });
 });
@@ -178,7 +182,7 @@ type S = Socket<any, any, any, SocketData>;
 
 io.use((socket: S, next) => {
   const h = socket.handshake.headers;
-  socket.data.admin = verifySession(parseCookies(h.cookie)[COOKIE], sessionSecret, admins);
+  socket.data.admin = adminFrom(h.cookie);
   socket.data.ip = clientIp(h, socket.handshake.address);
   socket.data.groupId = null;
   socket.data.tokenHash = null;
