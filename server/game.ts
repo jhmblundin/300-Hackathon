@@ -91,6 +91,7 @@ export function initialState(): GameState {
     superlativeVotes: {},
     spotlightIdeaId: null,
     startedAt: null,
+    funniest: {},
   };
 }
 
@@ -112,6 +113,7 @@ export class Game {
   ) {
     this.state = saved && saved.schemaVersion === 1 ? { ...initialState(), ...saved } : initialState();
     this.state.players ??= {};
+    this.state.funniest ??= {};
   }
 
   private now() {
@@ -177,6 +179,17 @@ export class Game {
       }
     }
     return t;
+  }
+
+  funnyCounts(): Record<string, number> {
+    const c: Record<string, number> = {};
+    for (const ideaId of Object.values(this.state.funniest ?? {})) if (this.idea(ideaId)) c[ideaId] = (c[ideaId] ?? 0) + 1;
+    return c;
+  }
+
+  /** True if this player wrote the idea (you can't rate your own). */
+  isAuthor(playerId: string, ideaId: string): boolean {
+    return this.idea(ideaId)?.authorId === playerId;
   }
 
   superlativeResult(index: number): SuperlativeResult {
@@ -246,9 +259,8 @@ export class Game {
     let votesCast = 0;
     let votesPossible = 0;
     for (const pid of this.teamedPlayerIds()) {
-      const gid = this.playerGroup(pid)?.id;
       votesCast += Object.keys(s.votes[pid] ?? {}).filter((id) => this.idea(id)).length;
-      votesPossible += s.ideas.filter((i) => i.groupId !== gid).length;
+      votesPossible += s.ideas.filter((i) => i.authorId !== pid).length;
     }
     let superlative: PublicState['superlative'] = null;
     if (s.phase === 'superlatives' && s.superlativeIndex >= 0) {
@@ -275,8 +287,9 @@ export class Game {
       })),
       ideaCount: s.ideas.length,
       playerCount: Object.keys(this.players()).length,
-      ideaTarget: s.groups.length * IDEAS_PER_GROUP,
+      ideaTarget: this.teamedPlayerIds().length * IDEAS_PER_GROUP,
       tallies: showTallies ? this.tallies() : null,
+      funny: showTallies ? this.funnyCounts() : null,
       votesCast,
       votesPossible,
       superlative,
@@ -292,11 +305,11 @@ export class Game {
     const name = s.participants.find((p) => p.id === playerId)?.name ?? 'Player';
     const g = this.playerGroup(playerId);
     if (!g) {
-      return { playerId, name, groupId: '', groupNumber: 0, members: [], ideas: [], votes: {}, superlativeVotes: {} };
+      return { playerId, name, groupId: '', groupNumber: 0, members: [], ideas: [], votes: {}, funniest: null, superlativeVotes: {} };
     }
     const groupId = g.id;
     const ideas = Array.from({ length: IDEAS_PER_GROUP }, (_, slot) => {
-      const i = s.ideas.find((x) => x.groupId === groupId && x.slot === slot);
+      const i = s.ideas.find((x) => x.authorId === playerId && x.slot === slot);
       return i ? { id: i.id, slot, title: i.title, description: i.description } : null;
     });
     const superlativeVotes: Record<string, string> = {};
@@ -311,6 +324,7 @@ export class Game {
       members: this.memberNames(g.memberIds),
       ideas,
       votes: { ...(s.votes[playerId] ?? {}) },
+      funniest: s.funniest?.[playerId] ?? null,
       superlativeVotes,
     };
   }
@@ -475,6 +489,7 @@ export class Game {
     const s = this.state;
     s.ideas = [];
     s.votes = {};
+    s.funniest = {};
     s.superlativeVotes = {};
     s.superlativeIndex = -1;
     s.timer = null;
@@ -581,6 +596,7 @@ export class Game {
     if (!this.idea(ideaId)) return fail('No such idea');
     s.ideas = s.ideas.filter((i) => i.id !== ideaId);
     for (const votes of Object.values(s.votes)) delete votes[ideaId];
+    for (const [pid, id] of Object.entries(s.funniest ?? {})) if (id === ideaId) delete s.funniest![pid];
     for (const votes of Object.values(s.superlativeVotes)) {
       for (const [gid, id] of Object.entries(votes)) if (id === ideaId) delete votes[gid];
     }
@@ -604,10 +620,11 @@ export class Game {
     return ok({ token, groupId });
   }
 
-  saveIdea(groupId: string, slot: unknown, title: unknown, description: unknown): Ack<{ ideaId: string }> {
+  saveIdea(playerId: string, slot: unknown, title: unknown, description: unknown): Ack<{ ideaId: string }> {
     const s = this.state;
     if (s.phase !== 'submit' || s.locked) return fail('Idea submissions are closed');
-    if (!this.group(groupId)) return fail('Unknown group');
+    const groupId = this.playerGroup(playerId)?.id;
+    if (!groupId) return fail("You're not on a team yet");
     const n = Number(slot);
     if (!Number.isInteger(n) || n < 0 || n >= IDEAS_PER_GROUP) return fail('Bad idea slot');
     const t = cleanTitle(String(title ?? ''));
@@ -618,14 +635,14 @@ export class Game {
     if (words > DESCRIPTION_MAX_WORDS) return fail(`Keep it to ${DESCRIPTION_MAX_WORDS} words (you have ${words})`);
     if (d.length > DESCRIPTION_MAX_CHARS) return fail('That description is too long');
     const now = this.now();
-    const existing = s.ideas.find((i) => i.groupId === groupId && i.slot === n);
+    const existing = s.ideas.find((i) => i.authorId === playerId && i.slot === n);
     if (existing) {
       existing.title = t;
       existing.description = d;
       existing.updatedAt = now;
       return ok({ ideaId: existing.id });
     }
-    const idea = { id: newId('idea'), groupId, slot: n, title: t, description: d, createdAt: now, updatedAt: now };
+    const idea = { id: newId('idea'), groupId, authorId: playerId, slot: n, title: t, description: d, createdAt: now, updatedAt: now };
     s.ideas.push(idea);
     return ok({ ideaId: idea.id });
   }
@@ -638,10 +655,22 @@ export class Game {
     if (!VOTE_KINDS.includes(kind as VoteKind)) return fail('Pick 🚀, 😐 or 💩');
     const idea = this.idea(String(ideaId));
     if (!idea) return fail('That idea is gone');
-    if (idea.groupId === groupId) return fail("You can't vote on your own idea");
+    if (idea.authorId === playerId) return fail("You can't vote on your own idea");
     const mine = (s.votes[playerId] ??= {});
     if (mine[idea.id]) return fail('You already voted on this one');
     mine[idea.id] = kind as VoteKind;
+    return ok();
+  }
+
+  /** Pick (or change) the funniest idea while voting is open. */
+  pickFunniest(playerId: string, ideaId: unknown): Ack {
+    const s = this.state;
+    if (s.phase !== 'vote' || s.locked) return fail('Voting is closed');
+    if (!this.playerGroup(playerId)) return fail("You're not on a team yet");
+    const idea = this.idea(String(ideaId));
+    if (!idea) return fail('That idea is gone');
+    if (idea.authorId === playerId) return fail("You can't pick your own idea");
+    (s.funniest ??= {})[playerId] = idea.id;
     return ok();
   }
 
@@ -653,7 +682,7 @@ export class Game {
     if (!groupId) return fail("You're not on a team yet");
     const idea = this.idea(String(ideaId));
     if (!idea) return fail('That idea is gone');
-    if (idea.groupId === groupId) return fail("You can't vote for your own idea");
+    if (idea.authorId === playerId) return fail("You can't vote for your own idea");
     const votes = (s.superlativeVotes[String(s.superlativeIndex)] ??= {});
     if (votes[playerId]) return fail('You already voted');
     votes[playerId] = idea.id;

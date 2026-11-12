@@ -11,32 +11,33 @@ export const SUPERLATIVES = [
 ] as const;
 
 export const GROUP_SIZE = 4;
-export const IDEAS_PER_GROUP = 3;
+/** Each person writes their own idea(s) on their own phone (Sean, 2026-11-12: no shared typing). */
+export const IDEAS_PER_PLAYER = 1;
+export const IDEAS_PER_GROUP = IDEAS_PER_PLAYER;
 export const TITLE_MAX_CHARS = 80;
 export const DESCRIPTION_MAX_WORDS = 200;
 export const DESCRIPTION_MAX_CHARS = 2000;
 
-export const VOTE_KINDS = ['rocket', 'meh', 'poop'] as const;
+// Sean, 2026-11-12: six ratings, best to worst. Each one is worth points on the live leaderboard.
+export const VOTE_KINDS = ['star', 'rocket', 'smile', 'confused', 'poop', 'megapoop'] as const;
 export type VoteKind = (typeof VOTE_KINDS)[number];
 
 export const VOTE_META: Record<VoteKind, { emoji: string; label: string; points: number }> = {
-  rocket: { emoji: '🚀', label: 'Good idea', points: 1 },
-  meh: { emoji: '😐', label: 'Okay idea', points: 0 },
-  poop: { emoji: '💩', label: 'Bad idea', points: -1 },
+  star: { emoji: '⭐', label: 'Genius', points: 5 },
+  rocket: { emoji: '🚀', label: 'Great', points: 3 },
+  smile: { emoji: '😊', label: 'Nice', points: 1 },
+  confused: { emoji: '😕', label: 'Huh?', points: 0 },
+  poop: { emoji: '💩', label: 'Bad', points: -1 },
+  megapoop: { emoji: '💩💩💩💩💩💩💩💩💩💩', label: 'Terrible', points: -5 },
 };
 
-export interface Tally {
-  rocket: number;
-  meh: number;
-  poop: number;
-}
+export type Tally = Record<VoteKind, number>;
 
-export const emptyTally = (): Tally => ({ rocket: 0, meh: 0, poop: 0 });
+export const emptyTally = (): Tally => ({ star: 0, rocket: 0, smile: 0, confused: 0, poop: 0, megapoop: 0 });
 
-export const scoreOf = (t: Tally): number =>
-  t.rocket * VOTE_META.rocket.points + t.meh * VOTE_META.meh.points + t.poop * VOTE_META.poop.points;
+export const scoreOf = (t: Tally): number => VOTE_KINDS.reduce((n, k) => n + (t[k] ?? 0) * VOTE_META[k].points, 0);
 
-export const totalVotes = (t: Tally): number => t.rocket + t.meh + t.poop;
+export const totalVotes = (t: Tally): number => VOTE_KINDS.reduce((n, k) => n + (t[k] ?? 0), 0);
 
 export function countWords(text: string): number {
   const t = text.trim();
@@ -74,15 +75,16 @@ export function rankIdeas<T extends { id: string; createdAt: number }>(
   rows.sort(
     (a, b) =>
       b.score - a.score ||
+      b.tally.star - a.tally.star ||
       b.tally.rocket - a.tally.rocket ||
-      a.tally.poop - b.tally.poop ||
+      a.tally.megapoop - b.tally.megapoop ||
       a.item.createdAt - b.item.createdAt ||
       a.item.id.localeCompare(b.item.id),
   );
   rows.forEach((r, i) => {
     const p = rows[i - 1];
     r.rank =
-      p && p.score === r.score && p.tally.rocket === r.tally.rocket && p.tally.poop === r.tally.poop ? p.rank : i + 1;
+      p && p.score === r.score && p.tally.star === r.tally.star && p.tally.rocket === r.tally.rocket && p.tally.megapoop === r.tally.megapoop ? p.rank : i + 1;
   });
   return rows;
 }

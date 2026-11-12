@@ -10,7 +10,7 @@ import {
   type VoteKind,
 } from '../../../shared/rules';
 import type { MeState, PublicIdea, PublicState } from '../../../shared/types';
-import { Brand, ConnectionBanner, IdeaDetail, Leaderboard, Modal, TimerView, WordCount } from '../components/ui';
+import { Brand, ConnectionBanner, FunnyBoard, IdeaDetail, Leaderboard, Modal, TimerView, WordCount, shortEmoji } from '../components/ui';
 import { CODE_KEY, connect, emitAck, joinGame, useStore } from '../lib/store';
 import { stableShuffle } from '../lib/time';
 
@@ -102,7 +102,7 @@ function JoinForm({ askCode, error }: { askCode: boolean; error: string | null }
   );
 }
 
-const dur = (ms: number) => (ms % 60000 === 0 ? `${ms / 60000} min` : `${Math.round(ms / 1000)} s`);
+const dur = (ms: number) => (ms >= 60000 ? `${+(ms / 60000).toFixed(1)} min` : `${Math.round(ms / 1000)} s`);
 
 function Waiting({ pub, me }: { pub: PublicState; me: MeState }) {
   return (
@@ -120,10 +120,10 @@ function Waiting({ pub, me }: { pub: PublicState; me: MeState }) {
         <h3>How it works</h3>
         <ol className="howto">
           <li>
-            <strong>Ideas ({dur(pub.durations.submitMs)}):</strong> your team writes {IDEAS_PER_GROUP} wacky startup ideas.
+            <strong>Ideas ({dur(pub.durations.submitMs)}):</strong> brainstorm with your team of 4, then everyone submits their own wacky idea.
           </li>
           <li>
-            <strong>Vote ({dur(pub.durations.voteMs)}):</strong> 🚀 good, 😐 okay or 💩 bad on every other team's idea.
+            <strong>Vote ({dur(pub.durations.voteMs)}):</strong> rate every idea from ⭐ genius to 💩×10 terrible, and pick the 😂 funniest.
           </li>
           <li>
             <strong>Superlatives:</strong> pick the idea that deserves each award.
@@ -206,10 +206,11 @@ function PitchPhase({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: 
   return (
     <>
       <div className="phase-head">
-        <div className="label accent">Phase 1 · Pitch</div>
-        <h1>Pitch {IDEAS_PER_GROUP} wacky ideas</h1>
+        <div className="label accent">Phase 1 · Ideas</div>
+        <h1>Your wacky idea</h1>
         <p className="muted">
-          Team {me.groupNumber}: {me.members.join(', ')}. Split them up: one idea each. A title is enough. Saves automatically.
+          Team {me.groupNumber}: {me.members.join(', ')}. Brainstorm together, then everyone submits their own. A title is
+          enough. Saves automatically.
         </p>
       </div>
       {closed && <div className="notice">Time's up! Voting starts in a moment.</div>}
@@ -347,7 +348,9 @@ function VotePhase({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: P
         <div className="label accent">Phase 2 · Vote</div>
         <h1>{closed ? 'Voting closed' : 'Rate every idea'}</h1>
         <p className="muted">
-          {closed ? 'Eyes on the big screen.' : `🚀 good · 😐 okay · 💩 bad. One vote per idea, no take-backs.`}
+          {closed
+            ? 'Eyes on the big screen.'
+            : 'Rate each idea: ⭐ genius down to 💩×10 terrible. No take-backs. Tap 😂 on your one funniest pick.'}
         </p>
       </div>
       {!closed && (
@@ -363,12 +366,21 @@ function VotePhase({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: P
       {view === 'vote' ? (
         <ul className="vote-list">
           {order.map((idea) => (
-            <VoteCard key={idea.id} idea={idea} mine={myIds.has(idea.id)} vote={me.votes[idea.id]} />
+            <VoteCard
+              key={idea.id}
+              idea={idea}
+              mine={myIds.has(idea.id)}
+              vote={me.votes[idea.id]}
+              funniest={me.funniest === idea.id}
+            />
           ))}
           {!order.length && <p className="muted">No ideas were submitted.</p>}
         </ul>
       ) : (
-        <Leaderboard ideas={ideas} tallies={pub.tallies} onSelect={setOpen} winnersOnTop={closed} />
+        <>
+          <Leaderboard ideas={ideas} tallies={pub.tallies} onSelect={setOpen} winnersOnTop={closed} />
+          <FunnyBoard ideas={ideas} funny={pub.funny} />
+        </>
       )}
       {open && (
         <Modal onClose={() => setOpen(null)}>
@@ -379,7 +391,11 @@ function VotePhase({ pub, me, ideas }: { pub: PublicState; me: MeState; ideas: P
   );
 }
 
-function VoteCard({ idea, mine, vote }: { idea: PublicIdea; mine: boolean; vote?: VoteKind }) {
+function VoteCard({ idea, mine, vote, funniest }: { idea: PublicIdea; mine: boolean; vote?: VoteKind; funniest: boolean }) {
+  async function pickFunny() {
+    const res = await emitAck('player:funniest', { ideaId: idea.id });
+    if (!res.ok) setError(res.error);
+  }
   const [expanded, setExpanded] = useState(false);
   const [pending, setPending] = useState<VoteKind | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -413,10 +429,15 @@ function VoteCard({ idea, mine, vote }: { idea: PublicIdea; mine: boolean; vote?
               onClick={() => cast(k)}
               aria-label={VOTE_META[k].label}
             >
-              <span className="emoji">{VOTE_META[k].emoji}</span>
-              <span className="vote-label">{VOTE_META[k].label}</span>
+              <span className="emoji">{shortEmoji(k)}</span>
+              <span className="vote-label">
+                {VOTE_META[k].label} {VOTE_META[k].points > 0 ? `+${VOTE_META[k].points}` : VOTE_META[k].points}
+              </span>
             </button>
           ))}
+          <button className={`funny-btn ${funniest ? 'on' : ''}`} onClick={pickFunny} disabled={funniest}>
+            😂 {funniest ? 'Your funniest pick' : 'Funniest?'}
+          </button>
         </div>
       )}
       {error && <p className="error">{error}</p>}

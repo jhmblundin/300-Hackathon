@@ -37,7 +37,7 @@ const ALLOWED_ORIGIN_HOSTS = new Set(
 );
 const SESSION_TTL_MS = 16 * 60 * 60 * 1000;
 const gameCfg = {
-  submitMs: num(process.env.SUBMIT_SECONDS, 180) * 1000,
+  submitMs: num(process.env.SUBMIT_SECONDS, 150) * 1000,
   voteMs: num(process.env.VOTE_SECONDS, 180) * 1000,
   superlativeMs: num(process.env.SUPERLATIVE_SECONDS, 60) * 1000,
 };
@@ -341,9 +341,8 @@ io.on('connection', (socket: S) => {
 
   handle(socket, 'player:saveIdea', (p) => {
     const pid = groupOf(socket);
-    const gid = pid ? game.playerGroup(pid)?.id : null;
-    if (!gid) return NOT_JOINED;
-    const r = game.saveIdea(gid, p.slot, str(p.title, 400), str(p.description, 5000));
+    if (!pid) return NOT_JOINED;
+    const r = game.saveIdea(pid, p.slot, str(p.title, 400), str(p.description, 5000));
     if (r.ok) changed();
     return r;
   });
@@ -352,6 +351,14 @@ io.on('connection', (socket: S) => {
     const gid = groupOf(socket);
     if (!gid) return NOT_JOINED;
     const r = game.vote(gid, str(p.ideaId), str(p.kind, 10));
+    if (r.ok) changed();
+    return r;
+  });
+
+  handle(socket, 'player:funniest', (p) => {
+    const pid = groupOf(socket);
+    if (!pid) return NOT_JOINED;
+    const r = game.pickFunniest(pid, str(p.ideaId));
     if (r.ok) changed();
     return r;
   });

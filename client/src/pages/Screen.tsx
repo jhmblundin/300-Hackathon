@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { PHASE_LABEL, SUPERLATIVES, voteWinners } from '../../../shared/rules';
 import type { PublicIdea, PublicState } from '../../../shared/types';
 import { AdminGate } from '../components/AdminGate';
-import { ConnectionBanner, IdeaDetail, Leaderboard, Mark, Modal, TimerView } from '../components/ui';
+import { ConnectionBanner, FunnyBoard, IdeaDetail, Leaderboard, Mark, Modal, TimerView } from '../components/ui';
 import { adminAction, useStore } from '../lib/store';
 import { Recap, SuperlativeResultCard } from './Play';
 
@@ -39,7 +39,7 @@ function ScreenInner() {
         </div>
         <div className="screen-phase label">{PHASE_LABEL[pub.phase]}</div>
         <div className="screen-head-right">
-          {pub.phase !== 'lobby' && pub.phase !== 'setup' && pub.phase !== 'finished' && (
+          {pub.phase !== 'lobby' && pub.phase !== 'setup' && pub.phase !== 'finished' && !(pub.phase === 'submit' && !pub.locked) && (
             <TimerView timer={pub.timer} big />
           )}
           <FullscreenButton />
@@ -204,12 +204,17 @@ function ScreenSubmit({ pub, ideas, onOpen }: { pub: PublicState; ideas: PublicI
   return (
     <div className="stack">
       <div className="row-between">
-        <h1 className="display-sm">{pub.locked ? "Time's up. Pens down!" : 'Teams: pitch 3 wacky ideas'}</h1>
+        <h1 className="display-sm">{pub.locked ? "Time's up. Pens down!" : 'Everyone: submit your wackiest idea'}</h1>
         <span className="big-count">
           {pub.ideaCount}
           <span className="muted">/{pub.ideaTarget} ideas</span>
         </span>
       </div>
+      {!pub.locked && (
+        <div className="mega-timer">
+          <TimerView timer={pub.timer} big />
+        </div>
+      )}
       <div className="team-grid">
         {pub.groups.map((g) => (
           <div key={g.id} className="team-card">
@@ -256,7 +261,10 @@ function ScreenVote({ pub, ideas, onOpen }: { pub: PublicState; ideas: PublicIde
           </span>
         </button>
       )}
-      <Leaderboard ideas={ideas} tallies={pub.tallies} onSelect={onOpen} size="xl" winnersOnTop={pub.locked} />
+      <div className="vote-split">
+        <Leaderboard ideas={ideas} tallies={pub.tallies} onSelect={onOpen} size="xl" winnersOnTop={pub.locked} />
+        <FunnyBoard ideas={ideas} funny={pub.funny} size="xl" />
+      </div>
     </div>
   );
 }

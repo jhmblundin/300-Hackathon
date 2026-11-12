@@ -18,6 +18,8 @@ export interface Group {
 export interface Idea {
   id: string;
   groupId: string;
+  /** The player who wrote it (each phone writes its own ideas). */
+  authorId?: string;
   slot: number;
   title: string;
   description: string;
@@ -58,6 +60,8 @@ export interface GameState {
   superlativeVotes: Record<string, Record<string, string>>;
   spotlightIdeaId: string | null;
   startedAt: number | null;
+  /** participantId -> the idea they picked as funniest (changeable while voting is open). */
+  funniest?: Record<string, string>;
 }
 
 // ---------- Payloads sent to clients ----------
@@ -97,6 +101,8 @@ export interface PublicState {
   ideaTarget: number;
   /** Live emoji tallies; null until the voting phase starts. */
   tallies: Record<string, Tally> | null;
+  /** ideaId -> how many people picked it as funniest; null until voting starts. */
+  funny: Record<string, number> | null;
   votesCast: number;
   votesPossible: number;
   superlative: {
@@ -128,6 +134,8 @@ export interface MeState {
   members: string[];
   ideas: (MyIdea | null)[];
   votes: Record<string, VoteKind>;
+  /** The idea this player picked as funniest. */
+  funniest: string | null;
   /** String(superlative index) -> ideaId */
   superlativeVotes: Record<string, string>;
 }

@@ -314,3 +314,41 @@ strong { font-weight: 600; }
 .team-card { background: rgba(246,246,244,.08); border-radius: 14px; padding: 10px 14px; display: flex; flex-direction: column; gap: 2px; }
 .team-card b { color: #F14C66; font-size: 1.1rem; }
 .team-card span { font-size: 1.05rem; }
+
+/* 2026-11-12: six ratings, funniest board, bigger timers */
+.vote-buttons { grid-template-columns: repeat(3, 1fr); }
+.vote-btn .emoji { font-size: 1.7rem; }
+.chip-megapoop .emoji, .vote-btn .emoji { white-space: nowrap; }
+.funny-btn { grid-column: 1 / -1; padding: 10px; border-radius: 12px; border: 1px dashed var(--grey-600); background: transparent; color: var(--canvas); font: 700 1rem var(--type); cursor: pointer; }
+.funny-btn.on { border-style: solid; border-color: #F5C518; background: rgba(245,197,24,.15); }
+.score-pop { display: inline-block; animation: scorepop .5s ease-out; }
+@keyframes scorepop { 0% { transform: scale(1.6); color: #F5C518; } 100% { transform: scale(1); } }
+.vote-split { display: grid; grid-template-columns: minmax(0, 2.2fr) minmax(0, 1fr); gap: 20px; flex: 1; min-height: 0; }
+.vote-split .board-xl { align-content: start; }
+.funny { background: var(--grey-800); border: 1px solid var(--grey-700); border-radius: 14px; padding: 14px 16px; margin-top: 14px; }
+.vote-split .funny { margin-top: 0; }
+.funny-head { font-weight: 700; font-size: 1.2rem; margin-bottom: 8px; }
+.funny-xl .funny-head { font-size: 2rem; }
+.funny-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.funny-list li { display: flex; justify-content: space-between; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--grey-900); }
+.funny-list li.lead { background: rgba(245,197,24,.18); border: 1px solid #F5C518; }
+.funny-xl .funny-list li { font-size: clamp(14px, 2.4vh, 28px); }
+.funny-n { font-weight: 700; white-space: nowrap; }
+.mega-timer { display: flex; justify-content: center; margin: 4px 0 12px; }
+.mega-timer .timer { align-items: center; min-width: 50vw; }
+.mega-timer .timer-clock { font-size: clamp(80px, 18vh, 200px); }
+.mega-timer .timer-bar { height: 12px; }
+.screen-head .timer-big .timer-clock { font-size: 4.5rem; }
+.phone-timer .timer-clock { font-size: 2.6rem; }
+.phone-timer .timer { min-width: 100%; align-items: stretch; }
+.phone-timer .timer-bar { height: 8px; }
+@media (max-width: 900px) { .vote-split { grid-template-columns: 1fr; } }
+.board-xl .board-row { font-size: clamp(16px, 3vh, 34px); }
+.board-xl .board-title { overflow: hidden; text-overflow: ellipsis; }
+.board-xl .score { font-size: 1.15em; font-weight: 800; min-width: 3ch; text-align: right; }
+.tally-chip sup { font-size: .55em; font-weight: 800; }
+.chip-n { margin-left: 2px; }
+.tally { gap: 14px; }
+.board-md .board-row { grid-template-columns: 2.2em minmax(0, 1fr); row-gap: 4px; }
+.board-md .board-row .tally { grid-column: 2; font-size: .9rem; }
+.board-md .board-title { min-width: 0; overflow-wrap: anywhere; }
