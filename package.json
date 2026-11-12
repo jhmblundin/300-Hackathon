@@ -13,7 +13,8 @@
     "start": "NODE_ENV=production node dist/server/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "simulate": "tsx scripts/simulate.ts"
+    "simulate": "tsx scripts/simulate.ts",
+    "bots": "tsx scripts/bots.ts"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^6.3.0",

@@ -56,6 +56,18 @@ Each `ADMIN_<NAME>_PASSWORD` variable adds an admin named `<Name>`. With none se
 - [ ] One test phone joins, then *Release phone* it before the real start.
 - [ ] Wi-Fi is fine for 16 phones (cell data works too; the app is ~170 KB).
 
+## Dress rehearsal with bots
+
+One person can test the whole game: `npm run bots` makes fake groups that join every group no real phone has
+joined when you press **Start**, then pitch, vote and pick superlatives at random times through each phase.
+
+```bash
+BASE_URL=https://<your-app> ADMIN_PASSWORD=<an admin passcode> npm run bots
+```
+
+Join your own group(s) from a real phone in the lobby first. Bots take the rest. Stop them with Ctrl-C, then
+**Danger zone → Restart game** (or **Reset everything**) before the real thing. Never run bots during the event.
+
 ## Develop
 
 ```bash
