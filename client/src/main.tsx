@@ -19,7 +19,7 @@ createRoot(document.getElementById('root')!).render(
           element={
             <Countdown
               label="Building starts in"
-              endAt="2026-11-12T21:19:00-05:00"
+              endAt="2026-11-12T21:20:00-05:00"
               after={['GO', 'BUILD.']}
               sub=""
             />
