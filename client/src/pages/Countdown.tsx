@@ -12,8 +12,16 @@ const mix = (a: number[], b: number[], t: number) => a.map((x, i) => Math.round(
 const WHITE = [246, 246, 244];
 const RED = [241, 76, 102];
 
-export default function Countdown() {
-  const at = new URLSearchParams(window.location.search).get('at') ?? DEFAULT_END;
+type Props = { label?: string; endAt?: string; after?: [string, string]; sub?: string };
+
+// /timer is the Idea-a-thon countdown; /building (Sean, 2026-11-12) counts down to 9:22pm and ends on "Go build."
+export default function Countdown({
+  label = 'Idea-a-thon starts in',
+  endAt = DEFAULT_END,
+  after = ['sike', '3 more slides sry'],
+  sub = '300massave.com/ideaathon',
+}: Props) {
+  const at = new URLSearchParams(window.location.search).get('at') ?? endAt;
   const end = Date.parse(at);
   const [now, setNow] = useState(Date.now());
   const [boomed, setBoomed] = useState(false);
@@ -53,13 +61,14 @@ export default function Countdown() {
       <Mark height={64} />
       {boomed ? (
         <div className="countdown-sike">
-          sike
-          <br />3 more slides sry
+          {after[0]}
+          <br />
+          {after[1]}
         </div>
       ) : (
         <>
           <div className="countdown-label" style={{ color: t > 0.6 ? color : undefined }}>
-            Idea-a-thon starts in
+            {label}
           </div>
           <div
             key={final ? s : 'steady'}
@@ -68,7 +77,7 @@ export default function Countdown() {
           >
             {done ? '💥' : `${m}:${String(s).padStart(2, '0')}`}
           </div>
-          <div className="countdown-sub">300massave.com/ideaathon</div>
+          {sub && <div className="countdown-sub">{sub}</div>}
         </>
       )}
     </div>
