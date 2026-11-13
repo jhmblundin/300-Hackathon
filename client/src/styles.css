@@ -352,3 +352,10 @@ strong { font-weight: 600; }
 .board-md .board-row { grid-template-columns: 2.2em minmax(0, 1fr); row-gap: 4px; }
 .board-md .board-row .tally { grid-column: 2; font-size: .9rem; }
 .board-md .board-title { min-width: 0; overflow-wrap: anywhere; }
+
+/* /ideaathon/timer: pre-game countdown (2026-11-12) */
+.countdown { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; background: var(--cool-black); color: var(--canvas); text-align: center; padding: 24px; }
+.countdown-label { font: 700 clamp(28px, 6vw, 88px)/1 var(--type); letter-spacing: -0.01em; }
+.countdown-clock { font: 800 clamp(120px, 30vw, 420px)/0.9 var(--type); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
+.countdown-clock.urgent { color: var(--red-on-dark); animation: pulse 1s infinite; }
+.countdown-sub { font-size: clamp(16px, 2vw, 28px); color: var(--grey-400, #9A9CA5); }
