@@ -14,7 +14,7 @@ const RED = [241, 76, 102];
 
 type Props = { label?: string; endAt?: string; after?: [string, string]; sub?: string };
 
-// /timer is the Idea-a-thon countdown; /building (Sean, 2026-11-12) counts down to 9:22pm and ends on "Go build."
+// /timer is the Idea-a-thon countdown; /building (Sean, 2026-11-12) counts down to 9:19pm and ends on "Go build."
 export default function Countdown({
   label = 'Idea-a-thon starts in',
   endAt = DEFAULT_END,
