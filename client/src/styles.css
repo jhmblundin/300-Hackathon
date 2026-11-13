@@ -354,8 +354,26 @@ strong { font-weight: 600; }
 .board-md .board-title { min-width: 0; overflow-wrap: anywhere; }
 
 /* /ideaathon/timer: pre-game countdown (2026-11-12) */
-.countdown { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; background: var(--cool-black); color: var(--canvas); text-align: center; padding: 24px; }
-.countdown-label { font: 700 clamp(28px, 6vw, 88px)/1 var(--type); letter-spacing: -0.01em; }
-.countdown-clock { font: 800 clamp(120px, 30vw, 420px)/0.9 var(--type); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; }
-.countdown-clock.urgent { color: var(--red-on-dark); animation: pulse 1s infinite; }
-.countdown-sub { font-size: clamp(16px, 2vw, 28px); color: var(--grey-400, #9A9CA5); }
+.countdown { position: relative; overflow: hidden; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2vh; background: var(--cool-black); color: var(--canvas); text-align: center; padding: 24px; transition: background 1s; }
+.countdown-label { font: 700 clamp(28px, 6vw, 88px)/1 var(--type); letter-spacing: -0.01em; transition: color 1s; }
+.countdown-clock { font: 800 clamp(120px, 30vw, 420px)/0.9 var(--type); font-variant-numeric: tabular-nums; letter-spacing: -0.03em; transition: color 1s, text-shadow 1s; }
+.countdown-sub { font-size: clamp(16px, 2vw, 28px); color: #9A9CA5; }
+/* last 30 seconds: shake harder, pulse every second, flash red, background heats up */
+.countdown.final { background: radial-gradient(circle at center, rgba(200,16,46, calc(0.15 + var(--i) * 0.55)), #1E2028 70%); animation: shake calc(0.5s - var(--i) * 0.4s) infinite; }
+.countdown.final .countdown-clock.tick { animation: tick 1s ease-out; }
+.countdown.final .countdown-label { animation: pulse 0.5s infinite; }
+.countdown-flash { position: absolute; inset: 0; background: #C8102E; pointer-events: none; animation: flash 1s ease-out forwards; opacity: calc(0.1 + var(--i) * 0.45); }
+@keyframes tick { 0% { transform: scale(calc(1.25 + var(--i) * 0.35)); } 100% { transform: scale(1); } }
+@keyframes flash { from { opacity: calc(0.1 + var(--i) * 0.45); } to { opacity: 0; } }
+@keyframes shake {
+  0%, 100% { transform: translate(0, 0); }
+  25% { transform: translate(calc(var(--i) * -10px), calc(var(--i) * 6px)) rotate(calc(var(--i) * -0.6deg)); }
+  50% { transform: translate(calc(var(--i) * 9px), calc(var(--i) * -7px)); }
+  75% { transform: translate(calc(var(--i) * -6px), calc(var(--i) * -5px)) rotate(calc(var(--i) * 0.6deg)); }
+}
+.countdown.boom { animation: boom 1.2s ease-out; }
+.countdown.boom .countdown-clock { animation: blast 1.2s ease-out forwards; }
+@keyframes boom { 0% { background: #fff; } 30% { background: #C8102E; } 100% { background: #1E2028; } }
+@keyframes blast { 0% { transform: scale(0.2); } 40% { transform: scale(2.2); } 100% { transform: scale(1.6); opacity: 0; } }
+.countdown-sike { font: 800 clamp(64px, 12vw, 200px)/1 var(--type); letter-spacing: -0.02em; animation: sike .6s cubic-bezier(.2, 1.6, .4, 1); }
+@keyframes sike { from { transform: scale(0.3) rotate(-8deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }
