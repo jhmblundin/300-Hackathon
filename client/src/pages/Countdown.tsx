@@ -2,10 +2,10 @@ import confetti from 'canvas-confetti';
 import { useEffect, useRef, useState } from 'react';
 import { Mark } from '../components/ui';
 
-// Pre-game countdown for the projector (Sean, 2026-11-12). Ends at 7:53pm Boston time.
+// Pre-game countdown for the projector (Sean, 2026-11-12). Ends at 8:01pm Boston time.
 // The numbers turn from white to red as the end gets close; the last 30 seconds shake, pulse and flash;
-// zero explodes, then reads "sike 3 more slides sry". Override the end with ?at=2026-11-12T19:53:00-05:00
-const DEFAULT_END = '2026-11-12T19:53:00-05:00';
+// zero explodes, then reads "sike 3 more slides sry". Override the end with ?at=2026-11-12T20:01:00-05:00
+const DEFAULT_END = '2026-11-12T20:01:00-05:00';
 const RAMP_MS = 20 * 60_000; // white -> red over the last 20 minutes
 
 const mix = (a: number[], b: number[], t: number) => a.map((x, i) => Math.round(x + (b[i] - x) * t));
